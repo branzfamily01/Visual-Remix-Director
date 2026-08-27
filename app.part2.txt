@@ -1,0 +1,130 @@
+        ? `<div class="reference-visual"><img src="${img}" alt="${esc(ref.title)}"></div>`
+        : `<div class="reference-visual"><div class="url-visual"><strong>${esc(domainFromUrl(ref.url))}</strong><small>${ref.url ? 'URL REFERENCE' : 'NOTE REFERENCE'}</small></div></div>`;
+      const tagHtml = (ref.tags || []).map(t => `<span class="tag">${esc(TAGS.find(x => x[0] === t)?.[1] || t)}</span>`).join('');
+      card.innerHTML = `<span class="ref-number">R${String(i + 1).padStart(2, '0')}</span>${visual}<div class="reference-body"><h3>${esc(ref.title || '名称未設定')}</h3><p>${esc(ref.note || ref.url || 'クリックして強みを設定')}</p><div class="tag-row">${tagHtml}</div></div>`;
+      card.addEventListener('click', () => openReferenceDialog(ref.id));
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openReferenceDialog(ref.id); } });
+      board.appendChild(card);
+    }
+  }
+
+  async function openReferenceDialog(id) {
+    const ref = state.references.find(r => r.id === id);
+    if (!ref) return;
+    editingReferenceId = id;
+    $('#dialogTitle').value = ref.title || '';
+    $('#dialogUrl').value = ref.url || '';
+    $('#dialogNote').value = ref.note || '';
+    const preview = $('#dialogPreview');
+    const img = ref.hasImage ? await dbGet(id).catch(() => null) : null;
+    preview.innerHTML = img ? `<img src="${img}" alt="">` : `<div class="url-visual"><strong>${esc(domainFromUrl(ref.url))}</strong><small>REFERENCE</small></div>`;
+    $('#dialogTags').innerHTML = TAGS.map(([id, label]) => `<label class="tag-choice"><input type="checkbox" value="${id}" ${(ref.tags || []).includes(id) ? 'checked' : ''}><span>${label}</span></label>`).join('');
+    $('#referenceDialog').showModal();
+  }
+
+  async function saveReferenceDialog() {
+    const ref = state.references.find(r => r.id === editingReferenceId);
+    if (!ref) return;
+    ref.title = $('#dialogTitle').value.trim();
+    ref.url = $('#dialogUrl').value.trim();
+    ref.note = $('#dialogNote').value.trim();
+    ref.tags = $$('#dialogTags input:checked').map(x => x.value);
+    saveState();
+    await renderReferences(); renderDecomposition();
+    $('#referenceDialog').close();
+    showToast('参照を更新しました');
+  }
+
+  async function deleteReference() {
+    const index = state.references.findIndex(r => r.id === editingReferenceId);
+    if (index < 0) return;
+    const ref = state.references[index];
+    const image = ref.hasImage ? await dbGet(ref.id).catch(() => null) : null;
+    lastDeleted = { ref: clone(ref), index, image };
+    state.references.splice(index, 1);
+    Object.values(state.decomposition).forEach(d => { if (d.refId === ref.id) d.refId = ''; });
+    if (ref.hasImage) await dbDelete(ref.id).catch(() => {});
+    saveState(); await renderReferences(); renderDecomposition();
+    $('#referenceDialog').close();
+    showToast('参照を削除しました', true);
+  }
+
+  async function restoreDeletedReference() {
+    if (!lastDeleted) return;
+    const { ref, index, image } = lastDeleted;
+    state.references.splice(Math.min(index, state.references.length), 0, ref);
+    if (image) await dbSet(ref.id, image).catch(() => {});
+    lastDeleted = null;
+    saveState(); await renderReferences(); renderDecomposition();
+    $('#toast').classList.remove('show');
+    showToast('削除を取り消しました');
+  }
+
+  function renderDecomposition() {
+    const grid = $('#decompositionGrid');
+    grid.innerHTML = DIMENSIONS.map(dim => {
+      const current = state.decomposition[dim.id] || { refId: '', adopt: '', change: '' };
+      const options = [`<option value="">参照を選ぶ</option>`, ...state.references.map((r, i) => `<option value="${r.id}" ${current.refId === r.id ? 'selected' : ''}>R${String(i+1).padStart(2,'0')} — ${esc(r.title || '名称未設定')}</option>`)].join('');
+      return `<article class="dimension-card" data-dimension="${dim.id}"><div class="dimension-title"><div><span>${dim.no} / ${dim.title.toUpperCase()}</span><h2>${dim.ja}</h2></div><p>${dim.hint}</p></div><div class="dimension-fields"><label>参照元<select data-field="refId">${options}</select></label><label>採用するもの<textarea data-field="adopt" placeholder="例：Heroを画面下寄せにする">${esc(current.adopt)}</textarea></label><label>変えるもの<textarea data-field="change" placeholder="例：写真は使わず3Dオブジェクトへ置換">${esc(current.change)}</textarea></label></div></article>`;
+    }).join('');
+
+    $$('.dimension-card').forEach(card => {
+      const dimId = card.dataset.dimension;
+      $$('[data-field]', card).forEach(field => {
+        field.addEventListener('input', () => {
+          state.decomposition[dimId] ||= { refId: '', adopt: '', change: '' };
+          state.decomposition[dimId][field.dataset.field] = field.value;
+          saveState();
+        });
+      });
+    });
+  }
+
+  function renderPalette() {
+    const palette = $('#palette');
+    palette.innerHTML = state.remix.palette.map((color, i) => `<div class="swatch" style="background:${esc(color)}"><input id="color${i}" type="color" value="${esc(color)}" data-index="${i}"><label for="color${i}" aria-label="色${i+1}を変更"></label><code>${esc(color)}</code></div>`).join('');
+    $$('#palette input').forEach(input => input.addEventListener('input', () => {
+      const idx = Number(input.dataset.index); state.remix.palette[idx] = input.value;
+      const wrap = input.closest('.swatch'); wrap.style.background = input.value; $('code', wrap).textContent = input.value;
+      renderTonePreview(); saveState();
+    }));
+    renderTonePreview();
+  }
+
+  function renderTonePreview() {
+    const p = state.remix.palette;
+    const preview = $('#tonePreview');
+    preview.style.background = `linear-gradient(135deg, ${p[1]} 0 62%, ${p[2]} 62% 79%, ${p[3]} 79%)`;
+    preview.style.color = p[0];
+  }
+
+  function bindRemixFields() {
+    const map = {
+      projectName: '#projectName', projectGoal: '#projectGoal', targetAudience: '#targetAudience',
+      signature: '#signature', avoidList: '#avoidList'
+    };
+    Object.entries(map).forEach(([key, sel]) => {
+      $(sel).value = state.remix[key] || '';
+      $(sel).addEventListener('input', e => { state.remix[key] = e.target.value; saveState(); });
+    });
+    $$('.directionWord').forEach(input => {
+      input.value = state.remix.directionWords[Number(input.dataset.index)] || '';
+      input.addEventListener('input', e => { state.remix.directionWords[Number(e.target.dataset.index)] = e.target.value; saveState(); });
+    });
+  }
+
+  function referenceName(id) {
+    const idx = state.references.findIndex(r => r.id === id);
+    if (idx < 0) return '未指定';
+    return `R${String(idx+1).padStart(2,'0')} — ${state.references[idx].title || '名称未設定'}`;
+  }
+
+  function generateContract() {
+    const r = state.remix;
+    const words = r.directionWords.filter(Boolean).join(' × ') || '未設定';
+    const p = r.palette.join(' / ');
+    const dims = DIMENSIONS.map(dim => {
+      const d = state.decomposition[dim.id] || {};
+      return `### ${dim.title.toUpperCase()} / ${dim.ja}\nSOURCE: ${referenceName(d.refId)}\nADOPT: ${d.adopt || '未設定'}\nCHANGE: ${d.change || '未設定'}`;
+    }).join('\n\n');
+    const refs = state.references.length ? state.references.map((ref, i) => `R${String(i+1).padStart(2,'0')}: ${ref.title || '名称未設定'}${ref.url ? ` — ${ref.url}` : ''}${ref.note ? `\n  NOTE: ${ref.note}` : ''}`).join('\n') : '参照なし';
