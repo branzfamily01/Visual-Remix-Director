@@ -1,0 +1,203 @@
+(() => {
+  'use strict';
+
+  const STORAGE_KEY = 'visual-remix-director:v1';
+  const ONBOARDING_KEY = 'visual-remix-director:onboarded';
+  const DB_NAME = 'visual-remix-director-assets';
+  const DB_STORE = 'images';
+  const VERSION = 1;
+
+  const TAGS = [
+    ['layout', '構図'], ['type', '文字'], ['color', '色'], ['texture', '質感'],
+    ['imagery', '画像'], ['motion', '動き'], ['ui', 'UI']
+  ];
+  const DIMENSIONS = [
+    { id: 'layout', no: 'A', title: 'Layout', ja: '構図', hint: '余白・視線誘導・セクション配置' },
+    { id: 'type', no: 'B', title: 'Typography', ja: '文字', hint: '書体・大きさ・行間・強弱' },
+    { id: 'color', no: 'C', title: 'Color', ja: '色', hint: '配色・コントラスト・アクセント' },
+    { id: 'texture', no: 'D', title: 'Texture', ja: '質感', hint: '紙・粒子・光・立体感' },
+    { id: 'imagery', no: 'E', title: 'Imagery', ja: '画像', hint: '写真・3D・イラスト・切り抜き' },
+    { id: 'motion', no: 'F', title: 'Motion', ja: '動き', hint: 'スクロール・遷移・ホバー' },
+    { id: 'ui', no: 'G', title: 'UI Detail', ja: 'UI', hint: 'ボタン・カード・ナビ・入力' }
+  ];
+
+  const DEFAULT_STATE = {
+    version: VERSION,
+    references: [],
+    decomposition: {},
+    remix: {
+      projectName: '', projectGoal: '', targetAudience: '', directionWords: ['', '', ''],
+      signature: '', avoidList: '', palette: ['#161616', '#f4efe5', '#ff5a2f', '#d9f06a', '#ffffff']
+    },
+    builder: { tool: 'Claude Code', techStack: 'HTML + CSS + Vanilla JavaScript', includeMotion: true, includeA11y: true }
+  };
+
+  let state = loadState();
+  let editingReferenceId = null;
+  let lastDeleted = null;
+  let toastTimer = null;
+
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+  const clone = obj => JSON.parse(JSON.stringify(obj));
+  const esc = str => String(str ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return clone(DEFAULT_STATE);
+      const parsed = JSON.parse(raw);
+      return {
+        ...clone(DEFAULT_STATE), ...parsed,
+        remix: { ...clone(DEFAULT_STATE.remix), ...(parsed.remix || {}) },
+        builder: { ...clone(DEFAULT_STATE.builder), ...(parsed.builder || {}) }
+      };
+    } catch (e) {
+      console.warn('State load failed', e);
+      return clone(DEFAULT_STATE);
+    }
+  }
+
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    renderOutputs();
+  }
+
+  function uid() {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains(DB_STORE)) req.result.createObjectStore(DB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function dbSet(key, value) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readwrite');
+      tx.objectStore(DB_STORE).put(value, key);
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+  }
+
+  async function dbGet(key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readonly');
+      const req = tx.objectStore(DB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => db.close();
+    });
+  }
+
+  async function dbDelete(key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readwrite');
+      tx.objectStore(DB_STORE).delete(key);
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+  }
+
+  async function dbClear() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readwrite');
+      tx.objectStore(DB_STORE).clear();
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+  }
+
+  function fileToDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function domainFromUrl(url) {
+    try { return new URL(url).hostname.replace(/^www\./, ''); }
+    catch { return 'WEB REFERENCE'; }
+  }
+
+  function showToast(message, undo = false) {
+    const toast = $('#toast');
+    toast.innerHTML = undo ? `${esc(message)} <button id="undoDelete" style="margin-left:8px;border:0;border-radius:999px;padding:5px 8px;font-weight:800;cursor:pointer">元に戻す</button>` : esc(message);
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), undo ? 6000 : 2600);
+    if (undo) {
+      $('#undoDelete')?.addEventListener('click', restoreDeletedReference, { once: true });
+    }
+  }
+
+  async function copyText(text, successMessage) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    showToast(successMessage);
+  }
+
+  function downloadText(filename, text, type = 'text/plain') {
+    const blob = new Blob([text], { type: `${type};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 500);
+  }
+
+  function switchPanel(targetId) {
+    $$('.step-tab').forEach(btn => btn.classList.toggle('is-active', btn.dataset.target === targetId));
+    $$('[data-panel]').forEach(panel => panel.classList.toggle('is-active', panel.id === targetId));
+    history.replaceState(null, '', `#${targetId}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (targetId === 'contract' || targetId === 'prompt') renderOutputs();
+  }
+
+  async function addReference({ title, url, note, file, tags = [] }) {
+    const id = uid();
+    const ref = { id, title: title || (file ? file.name.replace(/\.[^.]+$/, '') : domainFromUrl(url)), url: url || '', note: note || '', tags, hasImage: !!file };
+    if (file) {
+      const dataUrl = await fileToDataURL(file);
+      await dbSet(id, dataUrl);
+    }
+    state.references.push(ref);
+    saveState();
+    await renderReferences();
+    renderDecomposition();
+    showToast('参照を追加しました');
+  }
+
+  async function renderReferences() {
+    const board = $('#referenceBoard');
+    const empty = $('#emptyBoard');
+    $('#referenceCount').textContent = state.references.length;
+    board.innerHTML = '';
+    empty.hidden = state.references.length > 0;
+    board.hidden = state.references.length === 0;
+
+    for (let i = 0; i < state.references.length; i++) {
+      const ref = state.references[i];
+      const card = document.createElement('article');
+      card.className = 'reference-card';
+      card.tabIndex = 0;
+      card.dataset.id = ref.id;
+      const img = ref.hasImage ? await dbGet(ref.id).catch(() => null) : null;
+      const visual = img
