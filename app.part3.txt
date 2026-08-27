@@ -1,0 +1,97 @@
+    return `DESIGN CONTRACT / VISUAL REMIX DIRECTOR\n========================================\n\nPROJECT\n${r.projectName || '未設定'}\n\nGOAL\n${r.projectGoal || '未設定'}\n\nAUDIENCE\n${r.targetAudience || '未設定'}\n\nVISUAL DIRECTION\n${words}\n\nSIGNATURE\n${r.signature || '未設定'}\n\nCOLOR SYSTEM\n${p}\n\nREFERENCE MAP\n----------------------------------------\n${dims}\n\nDO NOT\n${r.avoidList || '未設定'}\n\nSOURCE REFERENCES\n----------------------------------------\n${refs}\n\nIMPLEMENTATION PRINCIPLES\n- References are direction, not permission to copy an existing work verbatim.\n- Remix the selected qualities into a distinct composition and visual system.\n- Keep text, navigation, controls, and interface content as editable web elements.\n- Do not bake essential text into background images or video.\n- Preserve the design direction across desktop and mobile; adapt composition rather than shrinking blindly.\n- Prefer small, focused refinements after the core visual system is implemented.\n`;
+  }
+
+  function contractReadiness() {
+    const checks = [
+      { label: '参照が3件以上', done: state.references.length >= 3 },
+      { label: '要素を3種類以上分解', done: DIMENSIONS.filter(d => state.decomposition[d.id]?.refId).length >= 3 },
+      { label: '目的と対象を設定', done: !!state.remix.projectGoal.trim() && !!state.remix.targetAudience.trim() },
+      { label: '方向性ワードを3つ設定', done: state.remix.directionWords.filter(x => x.trim()).length === 3 },
+      { label: 'Signatureと避けるものを設定', done: !!state.remix.signature.trim() && !!state.remix.avoidList.trim() }
+    ];
+    return checks;
+  }
+
+  function generatePrompt() {
+    const b = state.builder;
+    const contract = generateContract();
+    const motion = b.includeMotion ? `\nMOTION\n- Implement motion only where it supports hierarchy or storytelling.\n- Respect prefers-reduced-motion.\n- Keep mobile animation lighter when needed for performance.\n- If a video/animated background is used, keep interface text separate and editable.\n` : '';
+    const a11y = b.includeA11y ? `\nACCESSIBILITY\n- Use semantic HTML, keyboard-accessible controls, visible focus states, adequate contrast, and meaningful alt text.\n- Maintain comfortable touch targets on mobile.\n` : '';
+    return `You are implementing a website from a locked Design Contract.\n\nTARGET BUILDER: ${b.tool}\nTECH STACK: ${b.techStack}\n\nGOAL\nTranslate the contract below into a production-ready responsive website. Do not replace the direction with a generic AI template. Do not invent a new visual language unless the contract is missing a necessary implementation detail.\n\nPROCESS\n1. Read the entire Design Contract first.\n2. Build the information hierarchy and responsive layout.\n3. Establish design tokens for colors, type scale, spacing, radius, borders, and motion.\n4. Implement the selected reference qualities as a remix, not a pixel copy.\n5. Keep text and interface elements separate from decorative assets.\n6. Test desktop and narrow mobile widths before refinement.\n7. Refine with focused changes; do not redesign the whole page after implementation.\n${motion}${a11y}\nPERFORMANCE\n- Avoid unnecessary dependencies.\n- Optimize large images/video and prevent layout shift.\n- Keep the main experience usable even if decorative media is slow or unavailable.\n\nQUALITY BAR\n- No generic purple gradient unless explicitly required by the contract.\n- No automatic grid of icon cards unless the content structure requires it.\n- Typography, whitespace, image treatment, and motion must feel intentionally art-directed.\n- Preserve the Signature feature as the memorable differentiator.\n\n=== LOCKED DESIGN CONTRACT ===\n\n${contract}\n\n=== END CONTRACT ===\n\nBefore coding, summarize the implementation plan in 5-10 bullets. Then implement. After implementation, audit the result against every section of the Design Contract and fix mismatches.`;
+  }
+
+  function renderOutputs() {
+    const contract = generateContract();
+    $('#contractOutput').textContent = contract;
+    const checks = contractReadiness();
+    const score = Math.round(checks.filter(x => x.done).length / checks.length * 100);
+    $('#contractScore').textContent = `${score}%`;
+    $('#readinessList').innerHTML = checks.map(x => `<div class="ready-item ${x.done ? 'done' : ''}"><span class="ready-dot"></span>${esc(x.label)}</div>`).join('');
+    $('#promptOutput').textContent = generatePrompt();
+  }
+
+  async function exportProject() {
+    const payload = { ...clone(state), exportedAt: new Date().toISOString(), images: {} };
+    for (const ref of state.references) {
+      if (ref.hasImage) {
+        const image = await dbGet(ref.id).catch(() => null);
+        if (image) payload.images[ref.id] = image;
+      }
+    }
+    const name = (state.remix.projectName || 'visual-remix-project').trim().toLowerCase().replace(/[^a-z0-9\u3040-\u30ff\u3400-\u9fff]+/g, '-').replace(/^-|-$/g, '') || 'visual-remix-project';
+    downloadText(`${name}.visual-remix.json`, JSON.stringify(payload, null, 2), 'application/json');
+    showToast('プロジェクトを書き出しました');
+  }
+
+  async function importProject(file) {
+    try {
+      const parsed = JSON.parse(await file.text());
+      if (!parsed || !Array.isArray(parsed.references)) throw new Error('Invalid project');
+      await dbClear();
+      if (parsed.images) {
+        for (const [id, data] of Object.entries(parsed.images)) await dbSet(id, data);
+      }
+      delete parsed.images; delete parsed.exportedAt;
+      state = {
+        ...clone(DEFAULT_STATE), ...parsed,
+        remix: { ...clone(DEFAULT_STATE.remix), ...(parsed.remix || {}) },
+        builder: { ...clone(DEFAULT_STATE.builder), ...(parsed.builder || {}) }
+      };
+      saveState();
+      syncAllFields();
+      await renderReferences(); renderDecomposition(); renderPalette(); renderOutputs();
+      showToast('プロジェクトを読み込みました');
+    } catch (e) {
+      console.error(e); showToast('読み込みに失敗しました');
+    }
+  }
+
+  function syncAllFields() {
+    $('#projectName').value = state.remix.projectName || '';
+    $('#projectGoal').value = state.remix.projectGoal || '';
+    $('#targetAudience').value = state.remix.targetAudience || '';
+    $('#signature').value = state.remix.signature || '';
+    $('#avoidList').value = state.remix.avoidList || '';
+    $$('.directionWord').forEach(input => input.value = state.remix.directionWords[Number(input.dataset.index)] || '');
+    $('#builderSelect').value = state.builder.tool;
+    $('#techStack').value = state.builder.techStack;
+    $('#includeMotion').checked = state.builder.includeMotion;
+    $('#includeA11y').checked = state.builder.includeA11y;
+  }
+
+  function addSamples() {
+    if (state.references.length && !confirm('サンプル参照を3件追加します。現在の参照は消えません。よろしいですか？')) return;
+    const samples = [
+      { id: uid(), title: 'Editorial Hero', url: 'https://www.awwwards.com/', note: '大胆な余白と巨大タイポ。Heroの構図だけを参照。', tags: ['layout','type'], hasImage: false },
+      { id: uid(), title: 'Cinematic Motion', url: 'https://motionsites.ai/', note: '背景モーションとスクロール連動。文字は背景に焼き込まない。', tags: ['motion','imagery'], hasImage: false },
+      { id: uid(), title: 'Material Texture', url: 'https://pinterest.com/', note: '紙・粒子・コラージュの質感。色調はプロジェクト側で変更。', tags: ['texture','color'], hasImage: false }
+    ];
+    state.references.push(...samples);
+    saveState(); renderReferences(); renderDecomposition(); showToast('サンプルを追加しました');
+  }
+
+  function bindEvents() {
+    $$('.step-tab').forEach(btn => btn.addEventListener('click', () => switchPanel(btn.dataset.target)));
+
+    $('#referenceForm').addEventListener('submit', async e => {
+      e.preventDefault();
