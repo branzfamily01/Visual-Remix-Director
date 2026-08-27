@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "title": "Visual Remix Director",
+  "category": "Tools",
+  "summary": "複数のデザイン参照を分解・再構成し、Design ContractとAI実装プロンプトへ変換するツール。",
+  "tags": ["Web Design", "Reference", "AI Prompt", "Moodboard", "Remix"],
+  "color": "blue",
+  "status": "active",
+  "visibility": "public",
+  "manualUrl": "https://branzfamily01.github.io/Visual-Remix-Director/manual.html"
+}
