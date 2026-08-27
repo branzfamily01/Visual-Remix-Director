@@ -1,0 +1,36 @@
+    <section id="about"><h2>① このアプリは何をするもの？</h2><p>良いデザインを見つけたときに、「なんとなく好き」で終わらせず、何が良いのかを分けて記録します。その記録から、<strong>Design Contract</strong>と<strong>実装プロンプト</strong>を自動で作ります。</p><div class="notice">大事：参照サイトをそのままコピーする道具ではありません。良い部分を分解し、変更点も書いて、別のデザインへ組み直します。</div></section>
+
+    <section id="screen"><h2>② 画面の見方</h2><div class="ui-map"><nav><i>01 Harvest</i><i>02 Decompose</i><i>03 Remix</i><i>04 Contract</i><i>05 Build Prompt</i></nav><main><div class="mock-head"></div><div class="mock-grid"><i></i><i></i><i></i></div></main></div><div class="card"><h3>上の「？ 使い方」</h3><p>いつでもこのページを開けます。アプリへ戻るときは、このページ上部の「← アプリへ戻る」を押します。</p></div></section>
+
+    <section id="howto"><h2>③ 使い方</h2><div class="steps">
+      <article><div><h3>01 Harvest：参照を集める</h3><p>「画像を追加」を押してスクリーンショットを選ぶか、URLを入れます。「参照を追加」を押すと右側のボードに並びます。カードを押すと、メモや「この参照の強み」を編集できます。</p></div></article>
+      <article><div><h3>02 Decompose：部品に分ける</h3><p>構図・文字・色・質感・画像・動き・UIごとに「参照元」を選びます。「採用するもの」と「変えるもの」を書きます。</p></div></article>
+      <article><div><h3>03 Remix：ひとつの方向へまとめる</h3><p>プロジェクト名、目的、対象ユーザー、3つの方向性ワード、Signature、避けるものを入力します。色は5色まで決められます。</p></div></article>
+      <article><div><h3>04 Contract：設計を固定する</h3><p>入力した内容が1つのDesign Contractになります。「Design Contractをコピー」でクリップボードへ入れられます。「.txtで保存」もできます。</p></div></article>
+      <article><div><h3>05 Build Prompt：AIへ渡す</h3><p>Claude Code、ChatGPT、Cursor、Lovableなどを選びます。使いたい技術構成を書き、「実装プロンプトをコピー」を押します。そのままAIへ貼り付けます。</p></div></article>
+    </div></section>
+
+    <section id="features"><h2>④ できること一覧</h2><div class="feature-list">
+      <article><b>画像・URLの参照登録</b><p>スクリーンショットとURLを同じボードで管理します。</p></article>
+      <article><b>強みタグ</b><p>構図、文字、色、質感、画像、動き、UIを記録します。</p></article>
+      <article><b>要素別の参照割当</b><p>「構図はA、文字はB」のように分けて選べます。</p></article>
+      <article><b>Design Contract生成</b><p>AIが途中で勝手にデザインを変えにくい設計書を作ります。</p></article>
+      <article><b>AI実装プロンプト生成</b><p>選んだAIツールと技術構成に合わせて実装指示を作ります。</p></article>
+      <article><b>書き出し・読み込み</b><p>プロジェクト全体をJSONファイルとしてバックアップできます。</p></article>
+    </div></section>
+
+    <section id="data"><h2>⑤ データについて</h2><div class="card"><h3>このスマホ・PCの中に保存します</h3><p>文字の設定はブラウザの<strong>localStorage</strong>、追加した画像はブラウザの<strong>IndexedDB</strong>という保存場所を使います。普通の再読み込みでは残ります。</p></div><div class="notice">別の端末には自動では移りません。端末を変える前や、大切な案件では、上部の「書き出し」でバックアップしてください。</div><details class="details"><summary>詳しく：書き出しファイルには何が入る？</summary><div>参照情報、分解内容、Remix設定、AI用設定に加え、アップロードした画像もJSON内へ入れます。そのため画像が多いとファイルサイズが大きくなります。</div></details></section>
+
+    <section id="mistake"><h2>⑥ 間違えたとき</h2><div class="feature-list"><article><b>参照を直したい</b><p>参照カードを押す → 内容を直す → 「保存」。</p></article><article><b>参照を消した</b><p>削除直後に画面下へ出る「元に戻す」を押せば復元できます。</p></article><article><b>入力をやり直したい</b><p>各入力欄をそのまま書き換えてください。変更は自動保存されます。</p></article><article><b>壊すのが怖い</b><p>先に「書き出し」でバックアップしてから編集してください。</p></article></div></section>
+
+    <section id="trouble"><h2>⑦ 困ったとき</h2><div class="trouble"><article><b>画像が追加できない</b><p><strong>原因：</strong>画像ファイルではない可能性があります。<br><strong>対処：</strong>写真アプリやファイルからPNG/JPEG/WebPなどの画像を選び直します。</p></article><article><b>Contractが「未設定」だらけ</b><p><strong>原因：</strong>DecomposeやRemixがまだ空です。<br><strong>対処：</strong>左の01→03を順番に埋めます。04画面の完成度%も目安になります。</p></article><article><b>URLの画面が自動表示されない</b><p><strong>原因：</strong>このアプリはWebページを勝手に取得しません。<br><strong>対処：</strong>見た目を残したい場合はスクリーンショットも追加してください。</p></article><article><b>別端末でデータが見えない</b><p><strong>原因：</strong>データは端末内保存です。<br><strong>対処：</strong>元の端末で「書き出し」→新しい端末で「読み込み」を行います。</p></article></div></section>
+
+    <section id="iphone"><h2>⑧ スマホで使う方法</h2><div class="card"><h3>iPhoneのホーム画面へ追加</h3><div class="steps"><article><div><h3>Safariでアプリを開く</h3><p>GitHub Pagesの公開URLをSafariで開きます。</p></div></article><article><div><h3>共有ボタンを押す</h3><p>四角から上向き矢印が出ているボタンです。</p></div></article><article><div><h3>「ホーム画面に追加」</h3><p>アプリのようなアイコンから開けるようになります。</p></div></article></div></div><p>このアプリはPWA対応です。いったん読み込んだ主要画面とこのマニュアルは、Service Workerのキャッシュから開けるよう設計しています。</p></section>
+
+    <section id="terms"><h2>⑨ 用語集</h2><div class="glossary"><div><b>Reference Harvest</b><span>参考にしたいデザインを集める工程。</span></div><div><b>Decompose</b><span>デザインを構図・文字・色などへ分解すること。</span></div><div><b>Remix</b><span>複数の参照の良い点を、別の設計として組み直すこと。</span></div><div><b>Signature</b><span>そのサイトだけの、記憶に残る特徴。</span></div><div><b>Design Contract</b><span>実装前に固定するデザイン上の約束・設計書。</span></div><div><b>Build Prompt</b><span>Claude CodeなどのAIへ渡す、実装用の具体的な指示。</span></div><div><b>localStorage</b><span>ブラウザの中に文字データを保存する仕組み。</span></div><div><b>IndexedDB</b><span>ブラウザの中に画像など少し大きなデータを保存する仕組み。</span></div><div><b>PWA</b><span>Webページをスマホアプリのようにホーム画面から使いやすくする仕組み。</span></div></div></section>
+
+    <a class="toplink" href="#top">↑ トップへ戻る</a>
+    <div class="footer">Visual Remix Director — Manual v1.0</div>
+  </div>
+</body>
+</html>
