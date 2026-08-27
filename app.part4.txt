@@ -1,0 +1,52 @@
+      const file = $('#imageInput').files[0] || null;
+      const url = $('#urlInput').value.trim();
+      if (!file && !url) { showToast('画像かURLを入れてください'); return; }
+      await addReference({ title: $('#titleInput').value.trim(), url, note: $('#noteInput').value.trim(), file });
+      e.target.reset();
+    });
+
+    const drop = $('#dropZone');
+    ['dragenter','dragover'].forEach(evt => drop.addEventListener(evt, e => { e.preventDefault(); drop.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(evt => drop.addEventListener(evt, e => { e.preventDefault(); drop.classList.remove('dragover'); }));
+    drop.addEventListener('drop', e => {
+      const file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+      if (!file) return;
+      const dt = new DataTransfer(); dt.items.add(file); $('#imageInput').files = dt.files;
+      showToast(`${file.name} を選択しました`);
+    });
+    $('#imageInput').addEventListener('change', e => { if (e.target.files[0]) showToast(`${e.target.files[0].name} を選択しました`); });
+
+    $('#saveReferenceBtn').addEventListener('click', saveReferenceDialog);
+    $('#deleteReferenceBtn').addEventListener('click', deleteReference);
+    $('#addSampleBtn').addEventListener('click', addSamples);
+
+    $('#exportBtn').addEventListener('click', exportProject);
+    $('#importInput').addEventListener('change', e => { if (e.target.files[0]) importProject(e.target.files[0]); e.target.value = ''; });
+
+    $('#copyContractBtn').addEventListener('click', () => copyText(generateContract(), 'Design Contractをコピーしました'));
+    $('#downloadContractBtn').addEventListener('click', () => {
+      const filename = `${(state.remix.projectName || 'design-contract').replace(/[\\/:*?"<>|]+/g,'-')}.txt`;
+      downloadText(filename, generateContract()); showToast('Design Contractを保存しました');
+    });
+    $('#copyPromptBtn').addEventListener('click', () => copyText(generatePrompt(), '実装プロンプトをコピーしました'));
+
+    $('#builderSelect').addEventListener('change', e => { state.builder.tool = e.target.value; saveState(); });
+    $('#techStack').addEventListener('input', e => { state.builder.techStack = e.target.value; saveState(); });
+    $('#includeMotion').addEventListener('change', e => { state.builder.includeMotion = e.target.checked; saveState(); });
+    $('#includeA11y').addEventListener('change', e => { state.builder.includeA11y = e.target.checked; saveState(); });
+
+    $('#startBtn').addEventListener('click', () => {
+      localStorage.setItem(ONBOARDING_KEY, '1'); $('#onboardingDialog').close();
+    });
+  }
+
+  async function init() {
+    bindEvents(); bindRemixFields(); syncAllFields(); renderPalette(); renderDecomposition(); await renderReferences(); renderOutputs();
+    const hash = location.hash.replace('#','');
+    if (['harvest','decompose','remix','contract','prompt'].includes(hash)) switchPanel(hash);
+    if (!localStorage.getItem(ONBOARDING_KEY)) setTimeout(() => $('#onboardingDialog').showModal(), 180);
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./service-worker.js').catch(console.warn);
+  }
+
+  init();
+})();
