@@ -1,0 +1,13 @@
+{
+  "name": "Visual Remix Director",
+  "short_name": "Remix Director",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4efe5",
+  "theme_color": "#161616",
+  "description": "複数のデザイン参照を分解・再構成し、Design ContractとAI実装プロンプトへ変換するツール。",
+  "icons": [
+    {"src":"icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
