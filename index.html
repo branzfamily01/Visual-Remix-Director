@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#161616" />
+  <meta name="description" content="複数のデザイン参照を分解・再構成し、Design ContractとAI実装プロンプトへ変換するツール。" />
+  <title>Visual Remix Director</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.svg" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="#harvest" aria-label="Visual Remix Director ホーム">
+      <span class="brand-mark" aria-hidden="true">VR</span>
+      <span><strong>Visual Remix</strong><small>Director / 01</small></span>
+    </a>
+    <div class="topbar-actions">
+      <button class="ghost-btn" id="exportBtn" type="button">書き出し</button>
+      <label class="ghost-btn file-label">読み込み<input id="importInput" type="file" accept="application/json" hidden /></label>
+      <a class="help-btn" href="manual.html">？ 使い方</a>
+    </div>
+  </header>
+
+  <div class="app-shell">
+    <nav class="workflow-nav" aria-label="制作工程">
+      <button class="step-tab is-active" data-target="harvest"><span>01</span><b>Harvest</b><small>参照を集める</small></button>
+      <button class="step-tab" data-target="decompose"><span>02</span><b>Decompose</b><small>要素へ分解</small></button>
+      <button class="step-tab" data-target="remix"><span>03</span><b>Remix</b><small>方向を決める</small></button>
+      <button class="step-tab" data-target="contract"><span>04</span><b>Contract</b><small>設計を固定</small></button>
+      <button class="step-tab" data-target="prompt"><span>05</span><b>Build Prompt</b><small>AIへ渡す</small></button>
+    </nav>
+
+    <main>
+      <section id="harvest" class="panel is-active" data-panel>
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">01 / Reference Harvest</p>
+            <h1>好きなサイトを、<br><em>そのまま真似しない。</em></h1>
+          </div>
+          <p class="section-intro">「サイトAが好き」ではなく、<strong>何が好きか</strong>まで切り分けるための参照ボードです。画像・スクリーンショット・URLを集めます。</p>
+        </div>
+
+        <div class="harvest-grid">
+          <form id="referenceForm" class="add-card card" autocomplete="off">
+            <div class="card-kicker">ADD REFERENCE</div>
+            <label class="drop-zone" id="dropZone">
+              <input id="imageInput" type="file" accept="image/*" hidden />
+              <span class="drop-icon">＋</span>
+              <strong>画像を追加</strong>
+              <small>タップ / ドロップ</small>
+            </label>
+            <div class="or"><span>または</span></div>
+            <label>URL<input id="urlInput" type="url" inputmode="url" placeholder="https://example.com" /></label>
+            <label>名前<input id="titleInput" type="text" placeholder="例：Heroの構図が良い" /></label>
+            <label>メモ<textarea id="noteInput" rows="3" placeholder="どこに惹かれた？"></textarea></label>
+            <button class="primary-btn" type="submit">参照を追加</button>
+          </form>
+
+          <div class="board-wrap">
+            <div class="board-head">
+              <div><span id="referenceCount">0</span> REFERENCES</div>
+              <button class="text-btn" id="addSampleBtn" type="button">サンプルを入れる</button>
+            </div>
+            <div id="referenceBoard" class="reference-board" aria-live="polite"></div>
+            <div id="emptyBoard" class="empty-state">
+              <div class="empty-collage" aria-hidden="true"><i></i><i></i><i></i></div>
+              <h2>まず3つ集める</h2>
+              <p>構図・文字・質感など、違う強みを持つ参照を3〜6個集めるとリミックスしやすくなります。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="decompose" class="panel" data-panel>
+        <div class="section-head compact">
+          <div><p class="eyebrow">02 / Reference Decomposition</p><h1>「どこを借りるか」を<br><em>部品単位で決める。</em></h1></div>
+          <p class="section-intro">各デザイン要素ごとに参照元を1つ選び、採用点と変更点を書きます。コピーではなく、意思決定の記録です。</p>
+        </div>
+        <div id="decompositionGrid" class="decomposition-grid"></div>
+      </section>
+
+      <section id="remix" class="panel" data-panel>
+        <div class="section-head compact">
+          <div><p class="eyebrow">03 / Remix Direction</p><h1>断片をまとめて、<br><em>ひとつの世界観にする。</em></h1></div>
+          <p class="section-intro">ここで参照元から離れます。「誰に」「どんな印象を」「何を避けて」見せるのかを言語化します。</p>
+        </div>
+        <div class="remix-layout">
+          <div class="card remix-form">
+            <label>プロジェクト名<input id="projectName" type="text" placeholder="例：School Open Day LP" /></label>
+            <label>目的<textarea id="projectGoal" rows="3" placeholder="このサイトで達成したいこと"></textarea></label>
+            <label>対象ユーザー<textarea id="targetAudience" rows="2" placeholder="例：志望校選び中の中学生と保護者"></textarea></label>
+            <fieldset>
+              <legend>3つの方向性ワード</legend>
+              <div class="triple-input"><input class="directionWord" data-index="0" placeholder="Editorial"><input class="directionWord" data-index="1" placeholder="Warm"><input class="directionWord" data-index="2" placeholder="Bold"></div>
+            </fieldset>
+            <label>Signature（このサイトだけの特徴）<textarea id="signature" rows="3" placeholder="例：スクロールに合わせて紙片が重なる"></textarea></label>
+            <label>避けるもの<textarea id="avoidList" rows="3" placeholder="例：紫グラデーション、アイコンカードの羅列、過剰なガラス表現"></textarea></label>
+          </div>
+          <div class="card palette-card">
+            <div class="card-kicker">COLOR DIRECTION</div>
+            <h2>5色だけ決める</h2>
+            <p>色を増やしすぎない方が、複数参照を混ぜてもまとまります。</p>
+            <div class="palette" id="palette"></div>
+            <div class="tone-preview" id="tonePreview"><span>TYPE</span><strong>REMIX</strong><small>visual direction</small></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="contract" class="panel" data-panel>
+        <div class="section-head compact">
+          <div><p class="eyebrow">04 / Design Contract</p><h1>実装前に、<br><em>デザインを固定する。</em></h1></div>
+          <p class="section-intro">AIが勝手に方向転換しないよう、採用・変更・禁止事項をひとつの契約書へまとめます。</p>
+        </div>
+        <div class="output-layout">
+          <div class="output-meta card">
+            <div class="contract-score"><span id="contractScore">0%</span><small>contract readiness</small></div>
+            <div id="readinessList" class="readiness-list"></div>
+            <button class="primary-btn" id="copyContractBtn" type="button">Design Contractをコピー</button>
+            <button class="secondary-btn" id="downloadContractBtn" type="button">.txtで保存</button>
+          </div>
+          <pre id="contractOutput" class="output-paper" tabindex="0"></pre>
+        </div>
+      </section>
+
+      <section id="prompt" class="panel" data-panel>
+        <div class="section-head compact">
+          <div><p class="eyebrow">05 / Build Prompt</p><h1>デザイン判断を、<br><em>実装AIへ手渡す。</em></h1></div>
+          <p class="section-intro">Design Contractを、Claude Code / ChatGPT / Cursorなどが実装しやすい具体的な指示へ変換します。</p>
+        </div>
+        <div class="prompt-toolbar card">
+          <label>AIツール<select id="builderSelect"><option>Claude Code</option><option>ChatGPT</option><option>Cursor</option><option>Lovable</option><option>Generic AI Builder</option></select></label>
+          <label>技術構成<input id="techStack" type="text" value="HTML + CSS + Vanilla JavaScript" /></label>
+          <label class="check-label"><input id="includeMotion" type="checkbox" checked /> モーション指示を含める</label>
+          <label class="check-label"><input id="includeA11y" type="checkbox" checked /> アクセシビリティ条件を含める</label>
+          <button class="primary-btn" id="copyPromptBtn" type="button">実装プロンプトをコピー</button>
+        </div>
+        <pre id="promptOutput" class="output-paper prompt-paper" tabindex="0"></pre>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="referenceDialog" class="reference-dialog">
+    <form method="dialog" class="dialog-card">
+      <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
+      <div id="dialogPreview" class="dialog-preview"></div>
+      <label>名前<input id="dialogTitle" type="text" /></label>
+      <label>URL<input id="dialogUrl" type="url" /></label>
+      <label>メモ<textarea id="dialogNote" rows="3"></textarea></label>
+      <fieldset><legend>この参照の強み</legend><div id="dialogTags" class="tag-options"></div></fieldset>
+      <div class="dialog-actions"><button class="danger-btn" id="deleteReferenceBtn" type="button">削除</button><button class="primary-btn" id="saveReferenceBtn" type="button">保存</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="onboardingDialog" class="onboarding-dialog">
+    <div class="onboarding-card">
+      <div class="onboarding-badge">FIRST RUN</div>
+      <h2>「いい感じ」を、<br>実装できる言葉に変える。</h2>
+      <ol>
+        <li><span>1</span><div><b>参照を3つ集める</b><small>全部を真似せず、好きな部分を探します。</small></div></li>
+        <li><span>2</span><div><b>構図・文字・質感に分ける</b><small>各要素の参照元と変更点を決めます。</small></div></li>
+        <li><span>3</span><div><b>Design Contractをコピー</b><small>そのままAI実装ツールへ渡せます。</small></div></li>
+      </ol>
+      <button class="primary-btn" id="startBtn" type="button">はじめる</button>
+      <a href="manual.html">詳しい使い方を見る</a>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
